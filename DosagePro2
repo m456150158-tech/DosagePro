@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dosage Pro – by Mohamed Ibrahim</title>
+<link rel="manifest" href="manifest.json">
+<style>
+body{font-family:Arial,sans-serif;margin:0;padding:0;background:#eef3f7;color:#111;transition:0.3s;}
+.dark{background:#1e1e1e;color:white;}
+header{background:#006d77;color:white;padding:20px;text-align:center;}
+header h1{margin:0;font-size:22px;}
+.container{max-width:480px;margin:20px auto;padding:0 15px;}
+.card{background:white;border-radius:12px;padding:20px;margin-bottom:15px;box-shadow:0 4px 15px rgba(0,0,0,0.1);transition:0.3s;}
+.dark .card{background:#2c2c2c;}
+.card h3{color:#023047;margin-top:0;}
+input,select,button{width:100%;padding:10px;margin:8px 0;border-radius:8px;border:1px solid #ccc;}
+button{background:#006d77;color:white;border:none;cursor:pointer;}
+button:hover{background:#023047;}
+.result{margin-top:12px;font-size:15px;text-align:right;}
+.toggle{cursor:pointer;font-size:14px;text-align:right;margin-bottom:12px;color:#0077b6;}
+.warning{font-size:12px;color:red;margin-top:12px;text-align:center;}
+</style>
+</head>
+<body>
+<header>
+<h1>Dosage Pro – by Mohamed Ibrahim</h1>
+</header>
+<div class="container">
+<div class="toggle" onclick="toggleDark()">🌙 تبديل الوضع الليلي</div>
+
+<!-- اللغة -->
+<div class="card">
+<select id="lang" onchange="setLanguage()">
+<option value="ar">العربية</option>
+<option value="en">English</option>
+</select>
+</div>
+
+<!-- Dose Calculator -->
+<div class="card">
+<h3 id="doseHeader">💉 Dose Calculator</h3>
+<select id="ageType"><option value="adult">Adult</option><option value="child">Child</option></select>
+<input type="number" id="weight" placeholder="Weight (kg)">
+<select id="drugList"></select>
+<button onclick="doseCalc()">Calculate Dose</button>
+<div class="result" id="doseResult"></div>
+</div>
+
+<!-- BMI Calculator -->
+<div class="card">
+<h3 id="bmiHeader">⚖️ BMI Calculator</h3>
+<input type="number" id="height" placeholder="Height (cm)">
+<button onclick="bmiCalc()">Calculate BMI</button>
+<div class="result" id="bmiResult"></div>
+</div>
+
+<!-- Creatinine Clearance -->
+<div class="card">
+<h3 id="crclHeader">🧪 Creatinine Clearance</h3>
+<input type="number" id="age" placeholder="Age">
+<input type="number" id="scr" placeholder="Serum Creatinine (mg/dL)">
+<select id="gender"><option value="male">Male</option><option value="female">Female</option></select>
+<button onclick="crclCalc()">Calculate CrCl</button>
+<div class="result" id="crclResult"></div>
+</div>
+
+<div class="warning">⚠️ This is an educational tool only.</div>
+</div>
+
+<script>
+let lang="en";
+let drugsData=[];
+
+// Load drugs.json
+fetch("drugs.json").then(res=>res.json()).then(data=>{drugsData=data.drugs;populateDrugs();});
+
+function populateDrugs(){
+const sel=document.getElementById("drugList"); sel.innerHTML="";
+drugsData.forEach(d=>{
+const opt=document.createElement("option"); opt.value=d.code;
+opt.text=lang==="ar"?d.name_ar:d.name_en;
+sel.add(opt);
+});
+}
+
+function setLanguage(){lang=document.getElementById("lang").value;populateDrugs();}
+
+// Dark Mode
+function toggleDark(){document.body.classList.toggle("dark");}
+
+// Dose Calculator
+function doseCalc(){
+const ageType=document.getElementById("ageType").value;
+const weight=parseFloat(document.getElementById("weight").value);
+const code=document.getElementById("drugList").value;
+const d=drugsData.find(x=>x.code===code);
+if(!weight){document.getElementById("doseResult").innerText=lang==="ar"?"أدخل وزن صحيح":"Enter valid weight"; return;}
+let text="";
+switch(code){
+case"cef": if(ageType==="child"){let min=weight*d.doseChildMin,max=weight*d.doseChildMax; text=lang==="ar"?`سيفترياكسون للطفل: ${min}-${max} ${d.unit}`:`Ceftriaxone (Child): ${min}-${max} ${d.unit}`;}else{text=lang==="ar"?`جرعة بالغ: ${d.doseAdultRange} ${d.unit}`:`Adult dose: ${d.doseAdultRange} ${d.unit}`;} break;
+case"gent": let min=weight*d.doseMin,max=weight*d.doseMax; text=lang==="ar"?`جنتاميسين: ${min}-${max} ${d.unit}`:`Gentamicin: ${min}-${max} ${d.unit}`; break;
+case"para": let minP=weight*d.doseMin,maxP=weight*d.doseMax,maxD=weight*d.maxDaily; text=lang==="ar"?`باراسيتامول IV: ${minP}-${maxP} ${d.unit}, حد أقصى يوميًا ${maxD} ${d.unit}`:`Paracetamol IV: ${minP}-${maxP} ${d.unit}, max daily ${maxD} ${d.unit}`; break;
+case"clex": text=lang==="ar"?`كليكسين: ${weight*d.doseAdult} ${d.unit}`:`Clexane: ${weight*d.doseAdult} ${d.unit}`; break;
+case"insulin": text=lang==="ar"?d.notes_ar:d.notes_en; break;
+case"heparin": let load=weight*d.doseInit; text=lang==="ar"?`هيبارين: تحميلة ${load} وحدة، ثم ${d.doseInfusion} وحدة/كجم/ساعة`:`Heparin: ${load} IU loading, then ${d.doseInfusion} IU/kg/hr`; break;
+}
+document.getElementById("doseResult").innerHTML=text;
+}
+
+// BMI
+function bmiCalc(){const w=parseFloat(document.getElementById("weight").value); const h=parseFloat(document.getElementById("height").value)/100;
+if(!w||!h){document.getElementById("bmiResult").innerText=lang==="ar"?"أدخل بيانات صحيحة":"Enter valid data"; return;}
+const bmi=(w/(h*h)).toFixed(2);
+document.getElementById("bmiResult").innerText=(lang==="ar"?`BMI = ${bmi}`:`BMI = ${bmi}`);
+}
+
+// CrCl
+function crclCalc(){const age=parseFloat(document.getElementById("age").value); const w=parseFloat(document.getElementById("weight").value); const scr=parseFloat(document.getElementById("scr").value); const gender=document.getElementById("gender").value;
+if(!age||!w||!scr){document.getElementById("crclResult").innerText=lang==="ar"?"أدخل بيانات كاملة":"Enter complete data"; return;}
+let cr=((140-age)*w)/(72*scr); if(gender==="female") cr*=0.85; document.getElementById("crclResult").innerText=(lang==="ar"?`CrCl ≈ ${cr.toFixed(2)} mL/min`:`CrCl ≈ ${cr.toFixed(2)} mL/min`);
+}
+
+// Register Service Worker
+if('serviceWorker' in navigator){navigator.serviceWorker.register('/service-worker.js');}
+</script>
+</body>
+</html>
+{
+  "drugs": [
+    {
+      "code": "cef",
+      "name_ar": "سيفترياكسون",
+      "name_en": "Ceftriaxone",
+      "doseChildMin": 50,
+      "doseChildMax": 75,
+      "doseAdultRange": "1000-2000",
+      "unit": "mg",
+      "notes_ar": "جرعة طفل 50-75 مج/كجم يوميًا",
+      "notes_en": "Child: 50–75 mg/kg/day"
+    },
+    {
+      "code": "gent",
+      "name_ar": "جنتاميسين",
+      "name_en": "Gentamicin",
+      "doseMin": 5,
+      "doseMax": 7,
+      "unit": "mg",
+      "notes_ar": "5–7 مج/كجم يوميًا — اضبط حسب وظائف الكلى",
+      "notes_en": "5–7 mg/kg/day — adjust per renal function"
+    },
+    {
+      "code": "para",
+      "name_ar": "باراسيتامول IV",
+      "name_en": "Paracetamol IV",
+      "doseMin": 10,
+      "doseMax": 15,
+      "maxDaily": 60,
+      "unit": "mg",
+      "notes_ar": "10–15 مج/كجم كل 6 ساعات، حد أقصى يوميًا 60 مج/كجم",
+      "notes_en": "10–15 mg/kg every 6h, max 60 mg/kg/day"
+    },
+    {
+      "code": "clex",
+      "name_ar": "كليكسين (Enoxaparin)",
+      "name_en": "Clexane",
+      "doseAdult": 1,
+      "unit": "mg/kg",
+      "notes_ar": "1 مج/كجم كل 12 ساعة لعلاج الجلطة",
+      "notes_en": "1 mg/kg every 12h for clot treatment"
+    },
+    {
+      "code": "insulin",
+      "name_ar": "إنسولين",
+      "name_en": "Insulin",
+      "notes_ar": "0.5–1 وحدة/كجم يوميًا طبقًا للبروتوكول",
+      "notes_en": "0.5–1 unit/kg/day per protocol"
+    },
+    {
+      "code": "heparin",
+      "name_ar": "هيبارين",
+      "name_en": "Heparin",
+      "doseInit": 80,
+      "doseInfusion": 18,
+      "unit": "IU/kg",
+      "notes_ar": "تحميلة 80 وحدة، ثم 18 وحدة/كجم/ساعة",
+      "notes_en": "80 IU loading, then 18 IU/kg/hr"
+    }
+  ]
+}
+{
+  "name": "Dosage Pro – by Mohamed Ibrahim",
+  "short_name": "DosagePro",
+  "description": "Clinical Tool for Dose Calculations, BMI and Creatinine Clearance",
+  "lang": "ar",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#eef3f7",
+  "theme_color": "#006d77",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
+const CACHE_NAME = "dosage-pro-cache-v1";
+const FILES_TO_CACHE = [
+  "/index.html",
+  "/manifest.json",
+  "/drugs.json",
+  "/service-worker.js"
+];
+
+self.addEventListener("install", evt => {
+  evt.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(FILES_TO_CACHE)));
+});
+
+self.addEventListener("fetch", evt => {
+  evt.respondWith(caches.match(evt.request).then(resp => resp || fetch(evt.request)));
+});
